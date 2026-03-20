@@ -1,6 +1,6 @@
 # HOLMES Paper
 
-Code for  manuscript analyzing hierarchical vs. flat latent-cause models on compositional categorization tasks.
+Code for Hierarchical Latent Structure Learning through Online Inference (Aitsahalia, I. and Iigaya, K.) arxiv 2026. https://doi.org/10.48550/arXiv.2603.19139
 
 ## Overview
 
