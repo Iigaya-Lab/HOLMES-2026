@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from flat_model import one_layer_inference_loop
+from hier_model import full_hier_inference_loop
 
 
 @dataclass
@@ -243,9 +244,7 @@ def load_hier_loop(module_name: str):
 
 def run_one_seed(seed: int, cfg: ShapeColorConfig, hier_module: str, n_particles: int,
                  alpha: float, omega: float, max_depth: int, max_children: int,
-                 tree_mix: float, uncertainty_k: float, level_decay: float,
-                 pe_adapt_stickiness: bool, prediction_prior_mix: float,
-                 length_normalize: bool, tau: float, path_readout_mode: str):
+                 length_normalize: bool, tau: float):
     F, meta, fb = generate_shape_color_transfer_task(seed, cfg)
     y = F[meta["outcome_idx"], :].astype(int)
     oi = int(meta["outcome_idx"])
@@ -265,16 +264,11 @@ def run_one_seed(seed: int, cfg: ShapeColorConfig, hier_module: str, n_particles
         length_normalize=length_normalize, tau=tau,
     )
 
-    full_hier_inference_loop = load_hier_loop(hier_module)
     p_hier, _, r_hier, _, _, paths_hier, _ = full_hier_inference_loop(
         nTrials=F.shape[1], nParticles=n_particles, nFeatures=F.shape[0],
         alpha=alpha, omega=omega, f=F, max_depth=max_depth, max_children=max_children,
         outcome_idx=oi, feedback_mask=fb, random_seed=seed,
-        use_tree_prediction=True, tree_mix=tree_mix, uncertainty_k=uncertainty_k,
-        level_decay=level_decay, pe_adapt_stickiness=pe_adapt_stickiness,
-        prediction_prior_mix=prediction_prior_mix,
-        path_readout_mode=path_readout_mode,
-        length_normalize=length_normalize, tau=tau,
+        length_normalize=length_normalize,tau=tau,
     )
 
     rewarded_shape = int(meta["rewarded_shape"])
@@ -423,14 +417,6 @@ def main():
     parser.add_argument("--omega", type=float, default=0.5)
     parser.add_argument("--max_depth", type=int, default=20)
     parser.add_argument("--max_children", type=int, default=20)
-    parser.add_argument("--tree_mix", type=float, default=1.0)
-    parser.add_argument("--uncertainty_k", type=float, default=3.0)
-    parser.add_argument("--level_decay", type=float, default=0.7)
-    parser.add_argument("--prediction_prior_mix", type=float, default=0.0)
-    parser.add_argument("--path_readout_mode", type=str, default="most_informative",
-                        choices=["weighted", "most_informative", "max_confidence", "winner"],
-                        help="HOLMES path outcome readout: weighted average or most outcome-informative node.")
-    parser.add_argument("--pe_adapt_stickiness", action="store_true")
     parser.add_argument("--debug", action="store_true",
                         help="Print detailed per-seed diagnostics: mean probabilities by shape, all-level hierarchy diagnostics, and held-out trials.")
     parser.add_argument("--no_length_normalize", action="store_true")
@@ -463,7 +449,6 @@ def main():
     print(f"Seeds: {args.seeds}")
     print(f"alpha={args.alpha}, omega={args.omega}, particles={args.n_particles}")
     print(f"length_normalize={not args.no_length_normalize}, tau={args.tau}")
-    print(f"path_readout_mode={args.path_readout_mode}")
     print(f"Task config: {cfg}")
 
     results, trial_dfs, all_trial_dfs = [], [], []
@@ -471,9 +456,8 @@ def main():
         print(f"\nRunning seed {seed}...")
         res, trial_df, all_trials_df = run_one_seed(
             seed, cfg, args.hier_module, args.n_particles, args.alpha, args.omega,
-            args.max_depth, args.max_children, args.tree_mix, args.uncertainty_k,
-            args.level_decay, args.pe_adapt_stickiness, args.prediction_prior_mix,
-            not args.no_length_normalize, args.tau, args.path_readout_mode,
+            args.max_depth, args.max_children, 
+            not args.no_length_normalize, args.tau, 
         )
         results.append(res); trial_dfs.append(trial_df); all_trial_dfs.append(all_trials_df)
         print(f"  first-heldout F/H={res['flat_first_heldout_acc']:.3f}/{res['hier_first_heldout_acc']:.3f} adv={res['adv_first_heldout_acc']:+.3f}; train F/H={res['flat_train_acc']:.3f}/{res['hier_train_acc']:.3f}")

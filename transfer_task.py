@@ -18,8 +18,8 @@ from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 
 # Import model functions
 from flat_model import *
-from hier_model import *
-
+#from hier_model import *
+from full_hier_parent_specific_ncrp_confident_readout import *
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
@@ -569,12 +569,25 @@ def run_single_seed_all_tasks(seed, max_levels, alpha, omega):
             feedback_mask=fb[outcome_idx, :], random_seed=seed,
         )
         
-        # Train hierarchical model
-        np.random.seed(seed)
+        # # Train hierarchical model
+        # np.random.seed(seed)
+        # p_hier, _, rEst_hier, _, _, paths_hier, _ = full_hier_inference_loop(
+        #     nTrials=n_trials, nParticles=200, nFeatures=F.shape[0],
+        #     alpha=alpha, omega=omega, f=F, max_depth=20, max_children=20,
+        #     outcome_idx=outcome_idx, feedback_mask=fb, random_seed=seed,
+        # )
+
         p_hier, _, rEst_hier, _, _, paths_hier, _ = full_hier_inference_loop(
             nTrials=n_trials, nParticles=200, nFeatures=F.shape[0],
-            alpha=alpha, omega=omega, f=F, max_depth=20, max_children=20,
+            alpha=alpha, omega=omega, f=F,
+            max_depth=20, max_children=20,
             outcome_idx=outcome_idx, feedback_mask=fb, random_seed=seed,
+            # Match original hier_model.py exactly:
+            use_tree_prediction=False,
+            tree_mix=0.0,
+            pe_adapt_stickiness=False,
+            prediction_prior_mix=0.0,
+            length_normalize=False,
         )
         
         seed_result = {
