@@ -847,7 +847,7 @@ def report(df):
 
 def main():
     ap = argparse.ArgumentParser(description="Efficient hierarchical transfer probe (option C)")
-    ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
+    ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2, 3, 4, 5])
     ap.add_argument("--max_levels", type=int, default=5)
     ap.add_argument("--n_particles", type=int, default=200)
     ap.add_argument("--alpha", type=float, default=2.0)

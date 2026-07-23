@@ -841,11 +841,11 @@ VARIANTS = {
     "holmes_full":        {"family": "hier", "use_stopping": True,  "stick": "on"},
     "holmes_no_stick":    {"family": "hier", "use_stopping": True,  "stick": "off"},
     "holmes_no_stop":     {"family": "hier", "use_stopping": False, "stick": "on"},
-    "holmes_struct_only": {"family": "hier", "use_stopping": False, "stick": "off"},
+
 }
 
 # Ordered for display
-VARIANT_ORDER = ["flat", "flat_sticky", "holmes_struct_only",
+VARIANT_ORDER = ["flat", "flat_sticky",
                  "holmes_no_stop", "holmes_no_stick", "holmes_full"]
 
 
