@@ -2,49 +2,15 @@
 """
 HOLMES ablation + flat-model enhancement suite (self-contained).
 
-This single file hosts:
-  1. The flat one-layer latent-cause model (Gershman & Niv style CRP),
-     extended with an OPTIONAL stickiness mechanism.
-  2. The hierarchical HOLMES model (sticky nested CRP), with two lesion
-     switches: `use_stopping` and a decoupled `stickiness` strength.
-  3. The shape x many-colors transfer task.
-  4. Metrics + a runner that sweeps a set of model VARIANTS and reports
-     the contrasts that answer the scientific question.
-
-Scientific question
---------------------
-HOLMES adds three things on top of a flat CRP:
-    (a) a cluster HIERARCHY (nested CRP)  -- "the structure"
-    (b) STOPPING            -- infers how deep/abstract a cause is
-    (c) STICKINESS          -- temporal reuse of the previous path
-We want to know whether the *combination* of all three is needed, or whether
-the structure alone already delivers the benefit. We also test whether adding
-stickiness to the FLAT model (an enhancement) closes any remaining gap.
-
 Ablation grid (2x2 for HOLMES) + flat enhancement
 -------------------------------------------------
     holmes_full          structure + stopping + stickiness   (== original HOLMES)
     holmes_no_stick      structure + stopping
     holmes_no_stop       structure +          + stickiness
-    holmes_struct_only   structure                            ("just the structure")
+    holmes_struct_only   structure                            ("just the structure"-- not really relevant)
     flat                 baseline CRP
     flat_sticky          baseline CRP + stickiness            (enhancement)
 
-Important note on a confound in the original code
--------------------------------------------------
-In the original runner, HOLMES was called with `stickiness=omega`, and `omega`
-is ALSO the Bernoulli prior pseudocount (aPrior=bPrior=omega). That ties the
-stickiness strength to the likelihood prior. Here stickiness is a SEPARATE
-parameter. By default it falls back to `omega`, so `holmes_full` reproduces the
-original model exactly; pass --stickiness to decouple it.
-
-Fairness / faithfulness
------------------------
-* With stickiness=0 the flat model reproduces the original flat CRP byte-for-byte
-  (same RNG stream: the sticky bonus is skipped, not multiplied by 1).
-* With use_stopping=True and stickiness=omega, HOLMES reproduces the original.
-* Same observations, same online reward target, same particle count across
-  models. No oracle decoder, no post-hoc reward rates.
 """
 from __future__ import annotations
 
@@ -60,6 +26,7 @@ import pandas as pd
 
 # ============================================================
 # SHARED LIKELIHOOD HELPERS
+# all copied from the original model files 
 # ============================================================
 
 def weighted_hist(labels, weights, K):
@@ -443,7 +410,7 @@ def full_hier_inference_loop(
     include_outcome_in_weight=True,
     length_normalize=False, tau=1.0,
     feedback_mask=None,
-    stickiness=None,          # <-- decoupled from omega; None => use omega (original)
+    stickiness=None,          # <-- can set to something other than omega if yoyy want to decouple
     use_stopping=True,        # <-- lesion switch
     n_max_causes=None,        # <-- optional override for the cause budget
     return_rprob=False,
@@ -457,7 +424,7 @@ def full_hier_inference_loop(
 
     # Cause budget: large enough for the deepest (no-stopping) case, memory-bounded.
     if n_max_causes is None:
-        theoretical_leaves = max_children ** max_depth      # Python bigint is fine
+        theoretical_leaves = max_children ** max_depth     
         practical_cap = nParticles * nTrials
         n_max_causes = int(min(theoretical_leaves, practical_cap)) + nTrials * max_depth + 8
     nMaxCauses = int(n_max_causes)
@@ -651,7 +618,7 @@ def generate_shape_color_transfer_task(seed: int, cfg: ShapeColorConfig):
     elif cfg.reward_rule == "random_balanced":
         rewarded_shape = int(rng.integers(0, 2))
     else:
-        raise ValueError("reward_rule must be 'shape0' or 'random_balanced'")
+        raise ValueError("!!! reward_rule must be 'shape0' or 'random_balanced'")
 
     nuisance_by_color = {}
     if cfg.n_nuisance_features > 0:
@@ -944,7 +911,7 @@ def run_one_seed(seed, cfg, n_particles, alpha, omega, max_depth, max_children,
 
 
 # ============================================================
-# CONTRASTS + REPORTING
+# COMPARSONS
 # ============================================================
 
 def _paired(df, a, b, metric):

@@ -1,49 +1,25 @@
 #!/usr/bin/env python3
 """
-Hierarchical label-generalization (transfer) probe — efficient, self-contained.
+ label-generalization (transfer) probe — ablations!
 
 This is a faster, fairness-hardened rebuild of the transfer_task probe.
 
-WHAT THE PROBE MEASURES
------------------------
-A one-shot label-generalization test. Given a latent factor (e.g. species) that
+Given a latent factor (e.g. species) that
 partitions trials into categories, we label a few "anchor" trials, read off the
 cluster/node the model assigned them, and predict "same category" for every trial
 sharing that cluster and "different" otherwise. Scoring those same/different calls
 against the true factor (accuracy + F1) measures whether the model's learned
 partition carves the space at the grain of that factor.
 
-READOUTS (option C) — three ways to pick the hierarchical readout level
-----------------------------------------------------------------------
-  * held_out  (HEADLINE): choose the tree level whose clustering best matches the
-      labels ON A LABELED SUBSET, then evaluate same/different on the HELD-OUT
-      trials only. Selection and evaluation use disjoint data, so the level scan
-      cannot fit to the test labels. This is the defensible "the model selects the
-      right grain from limited supervision" claim.
-  * oracle    (UPPER BOUND): choose the level with the best match to the FULL true
-      factor (the original behaviour). Reported for comparison.
-  * shuffle_null (CONTROL): identical oracle max-over-levels selection, but on
-      label-shuffled data. Tells you how much advantage the selection step alone
-      buys with no real structure. A real effect must exceed this null.
-
 The flat model has one partition, so all three readouts reduce to scoring that
 single partition (held_out still evaluates on the held-out split for fairness).
 
 MODELS / LESIONS
 ----------------
-Flat one-layer CRP and HOLMES (nested CRP). HOLMES exposes the same two lesion
+HOLMES exposes the same two lesion
 switches as the shape/color ablation: `use_stopping` and a decoupled `stickiness`.
 Variants: flat, flat_sticky, holmes_full, holmes_no_stick, holmes_no_stop,
-holmes_struct_only.
-
-EFFICIENCY (vs the original transfer_task.py)
----------------------------------------------
-Verified rEst-identical to the original hier_model at (max_depth=20,max_children=20):
-  * weight_hist hoisted out of the trial loop (kills a per-trial locals() call).
-  * per-particle likelihood vectorized over particles.
-  * resample reindexes only the USED cause-columns (unused columns are frozen at
-    the prior constant, so permuting them is a no-op). ~14x faster at n_levels=5.
-Task generation was already ~1.5ms and is left alone.
+holmes_struct_only (again, not super relevant)
 """
 from __future__ import annotations
 
@@ -216,9 +192,7 @@ class MHLCMCRP:
                  depth_decay=1.0, max_children=5, stickiness=1.0, use_stopping=True,
                  fixed_depth=None):
         # fixed_depth: when use_stopping=False, descend to this depth instead of the
-        # full max_depth. This decouples the "no depth inference" lesion from the
-        # arbitrary computational ceiling (max_depth=20), which is both faster and
-        # more defensible than pinning the lesion to the deepest possible leaf.
+        # full max_depth. This decouples the "no depth inference" lesion from the arbitrary computational ceiling (max_depth=20)
         self._effective_depth = int(max_depth) if (use_stopping or fixed_depth is None) \
             else int(min(max_depth, fixed_depth))
         self.alpha = float(alpha); self.max_depth = int(max_depth)
@@ -294,9 +268,8 @@ def full_hier_inference_loop(
     feedback_mask=None, stickiness=None, use_stopping=True, fixed_depth=6,
 ):
     """
-    Efficient HOLMES loop. rEst/paths_dense are identical to the original
-    hier_model.full_hier_inference_loop at matching (max_depth, max_children,
-    stickiness=omega, use_stopping=True). Returns (particles, rEst, paths_dense).
+     HOLMES
+     Returns (particles, rEst, paths_dense).
     """
     rng = np.random.RandomState(random_seed)
     aPrior = bPrior = omega
@@ -408,7 +381,7 @@ def full_hier_inference_loop(
 
 
 # ============================================================
-# TASK (unchanged generator; already fast)
+# TASK (unchanged generator from transfer_task.py)
 # ============================================================
 
 def generate_scalable_hierarchical_task_quiet(n_levels=3, trials_per_context=10, seed=None):
@@ -475,15 +448,9 @@ def generate_scalable_hierarchical_task_quiet(n_levels=3, trials_per_context=10,
 
 
 # ============================================================
-# READOUT + PROBE (option C)
+# READOUT + PROBE 
 # ============================================================
 
-    #
-    # EXACT REPLICATION of transfer_task.py's transfer-accuracy readout.
-    # This reproduces the main-text metric byte-for-byte so every ablation
-    # variant is scored on the identical footing as the paper's Flat/Hier
-    # results. Do not "improve" this readout — its whole purpose is fidelity.
-    #
     #   * _majority_id: majority node via np.bincount+argmax over valid (>=0)
     #     assignments (ties -> lowest index, matching numpy argmax).
     #   * single labeled anchor = first factor==0 trial.
@@ -496,7 +463,7 @@ def generate_scalable_hierarchical_task_quiet(n_levels=3, trials_per_context=10,
     #
 
 def _majority_id(particle_assignments):
-    """Majority node id (>=0) or -1. Matches transfer_task._majority_id exactly."""
+    """Majority node id (>=0) or -1."""
     if len(particle_assignments) == 0:
         return -1
     valid = particle_assignments[particle_assignments >= 0]
@@ -507,7 +474,7 @@ def _majority_id(particle_assignments):
 
 
 def compute_transfer_metrics_with_f1(predictions, true_labels, positive_label=0):
-    """Byte-for-byte copy of transfer_task.compute_transfer_metrics_with_f1."""
+    """copy of transfer_task.compute_transfer_metrics_with_f1."""
     true_positive_mask = (true_labels == positive_label)
     pred_positive_mask = (predictions == positive_label)
     TP = int(np.sum(pred_positive_mask & true_positive_mask))
@@ -585,7 +552,7 @@ class RunConfig:
     omega: float = 0.5
     max_depth: int = 20
     max_children: int = 20
-    fixed_depth: int = 6             # descent depth for the no-stopping lesion
+    fixed_depth: int = 10             # descent depth for the no-stopping lesion
     length_normalize: bool = False
     tau: float = 1.0
     hier_stickiness: Optional[float] = None
@@ -595,7 +562,7 @@ class RunConfig:
 
 def run_ablation_point(alpha, omega, seed, max_levels=5,
                        n_particles=200, max_depth=20, max_children=20,
-                       trials_per_context=10, fixed_depth=6,
+                       trials_per_context=10, fixed_depth=10,
                        length_normalize=False, tau=1.0,
                        hier_stickiness=None, flat_stickiness=None,
                        variants=None):
