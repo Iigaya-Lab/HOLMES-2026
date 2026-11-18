@@ -237,7 +237,7 @@ def one_layer_inference_loop(
         # Predicted outcome
         if return_rprob:
             rProb_parts[:,t] = rProb.copy()
-        rEst[t] = float(np.dot(rt, rProb))
+        rEst[t] = float(np.dot(rt, rProb))#could be wt
 
         # Posterior on latent causes
         cEst[:, t] = weighted_hist(particles[:, t], wt, nMaxCauses)
