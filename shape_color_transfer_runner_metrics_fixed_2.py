@@ -242,7 +242,7 @@ def load_hier_loop(module_name: str):
     return importlib.import_module(module_name).full_hier_inference_loop
 
 
-def run_one_seed(seed: int, cfg: ShapeColorConfig, hier_module: str, n_particles: int,
+def run_one_seed(seed: int, cfg: ShapeColorConfig, n_particles: int,
                  alpha: float, omega: float, max_depth: int, max_children: int,
                  length_normalize: bool, tau: float):
     F, meta, fb = generate_shape_color_transfer_task(seed, cfg)
@@ -408,9 +408,166 @@ def run_one_seed(seed: int, cfg: ShapeColorConfig, hier_module: str, n_particles
     return result, pd.DataFrame(rows), all_trials_df
 
 
+# def main():
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+#     parser.add_argument("--n_particles", type=int, default=200)
+#     parser.add_argument("--alpha", type=float, default=1.0)
+#     parser.add_argument("--omega", type=float, default=0.5)
+#     parser.add_argument("--max_depth", type=int, default=20)
+#     parser.add_argument("--max_children", type=int, default=20)
+#     parser.add_argument("--debug", action="store_true",
+#                         help="Print detailed per-seed diagnostics: mean probabilities by shape, all-level hierarchy diagnostics, and held-out trials.")
+#     parser.add_argument("--no_length_normalize", action="store_true")
+#     parser.add_argument("--tau", type=float, default=1.0)
+#     parser.add_argument("--n_colors", type=int, default=10)
+#     parser.add_argument("--n_train_colors", type=int, default=8)
+#     parser.add_argument("--n_test_colors", type=int, default=2)
+#     parser.add_argument("--train_reps", type=int, default=5)
+#     parser.add_argument("--test_reps", type=int, default=1)
+#     parser.add_argument("--shape_copies", type=int, default=6)
+#     parser.add_argument("--color_copies", type=int, default=1)
+#     parser.add_argument("--nuisance_features", type=int, default=0)
+#     parser.add_argument("--shuffled_train", action="store_true")
+#     parser.add_argument("--reward_rule", type=str, default="shape0", choices=["shape0", "random_balanced"])
+#     parser.add_argument("--out_prefix", type=str, default="/mnt/data/shape_color_transfer")
+#     args = parser.parse_args()
+
+#     cfg = ShapeColorConfig(
+#         n_colors=args.n_colors, n_train_colors=args.n_train_colors, n_test_colors=args.n_test_colors,
+#         train_reps_per_stimulus=args.train_reps, test_reps_per_stimulus=args.test_reps,
+#         n_shape_copies=args.shape_copies, n_color_copies=args.color_copies,
+#         n_nuisance_features=args.nuisance_features, blocked_train_by_shape=not args.shuffled_train,
+#         reward_rule=args.reward_rule,
+#     )
+
+#     print("=" * 88)
+#     print("SHAPE x MANY COLORS TRANSFER TASK")
+#     print("=" * 88)
+#     print(f"Seeds: {args.seeds}")
+#     print(f"alpha={args.alpha}, omega={args.omega}, particles={args.n_particles}")
+#     print(f"length_normalize={not args.no_length_normalize}, tau={args.tau}")
+#     print(f"Task config: {cfg}")
+
+#     results, trial_dfs, all_trial_dfs = [], [], []
+#     for seed in args.seeds:
+#         print(f"\nRunning seed {seed}...")
+#         res, trial_df, all_trials_df = run_one_seed(
+#             seed, cfg, args.n_particles, args.alpha, args.omega,
+#             args.max_depth, args.max_children, 
+#             not args.no_length_normalize, args.tau, 
+#         )
+#         results.append(res); trial_dfs.append(trial_df); all_trial_dfs.append(all_trials_df)
+#         print(f"  first-heldout F/H={res['flat_first_heldout_acc']:.3f}/{res['hier_first_heldout_acc']:.3f} adv={res['adv_first_heldout_acc']:+.3f}; train F/H={res['flat_train_acc']:.3f}/{res['hier_train_acc']:.3f}")
+#         print(f"  shape structure: flat sep={res['flat_shape_separation']:.3f}; hier L{res['hier_best_shape_level']} sep={res['hier_best_shape_separation']:.3f}; nodes={res['hier_nodes_by_level']}")
+#         if args.debug:
+#             print("  DEBUG mean predicted P(reward=1) by shape:")
+#             print(f"    train flat: shape0={res['flat_train_shape0_mean_prob']:.3f}, shape1={res['flat_train_shape1_mean_prob']:.3f}, contrast={res['flat_train_shape_contrast']:+.3f}")
+#             print(f"    train hier: shape0={res['hier_train_shape0_mean_prob']:.3f}, shape1={res['hier_train_shape1_mean_prob']:.3f}, contrast={res['hier_train_shape_contrast']:+.3f}")
+#             print(f"    heldout flat: shape0={res['flat_heldout_shape0_mean_prob']:.3f}, shape1={res['flat_heldout_shape1_mean_prob']:.3f}, contrast={res['flat_heldout_shape_contrast']:+.3f}")
+#             print(f"    heldout hier: shape0={res['hier_heldout_shape0_mean_prob']:.3f}, shape1={res['hier_heldout_shape1_mean_prob']:.3f}, contrast={res['hier_heldout_shape_contrast']:+.3f}")
+#             print("  DEBUG probabilistic scores:")
+#             print(f"    train Brier F/H={res['flat_train_brier']:.4f}/{res['hier_train_brier']:.4f}; reduction={res['adv_train_brier_reduction']:+.4f}")
+#             print(f"    heldout Brier F/H={res['flat_heldout_brier']:.4f}/{res['hier_heldout_brier']:.4f}; reduction={res['adv_heldout_brier_reduction']:+.4f}")
+#             print(f"    train logloss F/H={res['flat_train_logloss']:.4f}/{res['hier_train_logloss']:.4f}; reduction={res['adv_train_logloss_reduction']:+.4f}")
+#             print(f"    heldout logloss F/H={res['flat_heldout_logloss']:.4f}/{res['hier_heldout_logloss']:.4f}; reduction={res['adv_heldout_logloss_reduction']:+.4f}")
+#             print("  DEBUG hierarchy shape diagnostics by level:")
+#             for level_name, diag in res.get('hier_diag_by_level', {}).items():
+#                 print(f"    {level_name}: same={diag['same_group_same_node']:.3f}, diff={diag['diff_group_same_node']:.3f}, sep={diag['separation']:.3f}")
+#             print("  DEBUG first-heldout trial predictions:")
+#             if len(trial_df):
+#                 cols_dbg = ['trial', 'shape', 'color', 'reward', 'flat_prob', 'hier_prob',
+#                             'flat_signed_margin', 'hier_signed_margin',
+#                             'flat_correct', 'hier_correct', 'flat_cluster', 'hier_best_node']
+#                 cols_dbg = [c for c in cols_dbg if c in trial_df.columns]
+#                 print(trial_df[cols_dbg].to_string(index=False))
+
+#     df = pd.DataFrame([{k: v for k, v in r.items() if k != "hier_diag_by_level"} for r in results])
+#     trials_df     = pd.concat(trial_dfs,     ignore_index=True) if trial_dfs     else pd.DataFrame()
+#     all_trials_df = pd.concat(all_trial_dfs, ignore_index=True) if all_trial_dfs else pd.DataFrame()
+
+#     print("\n" + "=" * 88)
+#     print("SUMMARY ACROSS SEEDS")
+#     print("=" * 88)
+#     cols = [
+#         "seed",
+#         "flat_train_acc", "hier_train_acc",
+#         "flat_first_heldout_acc", "hier_first_heldout_acc", "adv_first_heldout_acc",
+#         "flat_heldout_shape_contrast", "hier_heldout_shape_contrast", "adv_heldout_shape_contrast",
+#         "flat_heldout_brier", "hier_heldout_brier", "adv_heldout_brier_reduction",
+#         "flat_heldout_logloss", "hier_heldout_logloss", "adv_heldout_logloss_reduction",
+#         "flat_shape_separation", "hier_best_shape_level", "hier_best_shape_separation",
+#         "flat_n_clusters", "hier_nodes_by_level"
+#     ]
+#     print(df[cols].to_string(index=False))
+#     print("\nMean first-heldout accuracy:")
+#     print(f"  Flat: {df['flat_first_heldout_acc'].mean():.3f} +/- {df['flat_first_heldout_acc'].std(ddof=1):.3f}")
+#     print(f"  Hier: {df['hier_first_heldout_acc'].mean():.3f} +/- {df['hier_first_heldout_acc'].std(ddof=1):.3f}")
+#     print(f"  Adv : {df['adv_first_heldout_acc'].mean():+.3f} +/- {df['adv_first_heldout_acc'].std(ddof=1):.3f}")
+#     adv = df['adv_first_heldout_acc']
+#     from scipy import stats as _stats
+#     t_stat, p_val = _stats.ttest_1samp(adv.dropna(), 0)
+#     d = adv.mean() / adv.std(ddof=1)
+#     print(f"  t({len(adv)-1}) = {t_stat:+.3f}, p = {p_val:.4f}, d = {d:.3f}")
+
+#     print("\nMean heldout signed shape contrast (sign-corrected; higher = model reads rewarded shape):")
+#     print(f"  Flat: {df['flat_heldout_signed_contrast'].mean():+.4f} +/- {df['flat_heldout_signed_contrast'].std(ddof=1):.4f}")
+#     print(f"  Hier: {df['hier_heldout_signed_contrast'].mean():+.4f} +/- {df['hier_heldout_signed_contrast'].std(ddof=1):.4f}")
+#     print(f"  Adv : {df['adv_heldout_signed_contrast'].mean():+.4f} +/- {df['adv_heldout_signed_contrast'].std(ddof=1):.4f}")
+#     adv_sc = df['adv_heldout_signed_contrast']
+#     t_sc, p_sc = _stats.ttest_1samp(adv_sc.dropna(), 0)
+#     d_sc = adv_sc.mean() / adv_sc.std(ddof=1)
+#     print(f"  t({len(adv_sc)-1}) = {t_sc:+.3f}, p = {p_sc:.4f}, d = {d_sc:.3f}")
+
+#     print("\nMean heldout shape contrast (unsigned, shape0 - shape1):")
+#     print(f"  Flat: {df['flat_heldout_shape_contrast'].mean():+.4f} +/- {df['flat_heldout_shape_contrast'].std(ddof=1):.4f}")
+#     print(f"  Hier: {df['hier_heldout_shape_contrast'].mean():+.4f} +/- {df['hier_heldout_shape_contrast'].std(ddof=1):.4f}")
+#     print(f"  Adv : {df['adv_heldout_shape_contrast'].mean():+.4f} +/- {df['adv_heldout_shape_contrast'].std(ddof=1):.4f}")
+
+#     print("\nMean heldout Brier score (lower is better):")
+#     print(f"  Flat: {df['flat_heldout_brier'].mean():.4f} +/- {df['flat_heldout_brier'].std(ddof=1):.4f}")
+#     print(f"  Hier: {df['hier_heldout_brier'].mean():.4f} +/- {df['hier_heldout_brier'].std(ddof=1):.4f}")
+#     print(f"  Reduction (Flat-Hier): {df['adv_heldout_brier_reduction'].mean():+.4f} +/- {df['adv_heldout_brier_reduction'].std(ddof=1):.4f}")
+#     adv_b = df['adv_heldout_brier_reduction']
+#     t_b, p_b = _stats.ttest_1samp(adv_b.dropna(), 0)
+#     d_b = adv_b.mean() / adv_b.std(ddof=1)
+#     print(f"  t({len(adv_b)-1}) = {t_b:+.3f}, p = {p_b:.4f}, d = {d_b:.3f}")
+
+#     print("\nMean heldout log loss (lower is better):")
+#     print(f"  Flat: {df['flat_heldout_logloss'].mean():.4f} +/- {df['flat_heldout_logloss'].std(ddof=1):.4f}")
+#     print(f"  Hier: {df['hier_heldout_logloss'].mean():.4f} +/- {df['hier_heldout_logloss'].std(ddof=1):.4f}")
+#     print(f"  Reduction (Flat-Hier): {df['adv_heldout_logloss_reduction'].mean():+.4f} +/- {df['adv_heldout_logloss_reduction'].std(ddof=1):.4f}")
+#     adv_l = df['adv_heldout_logloss_reduction']
+#     t_l, p_l = _stats.ttest_1samp(adv_l.dropna(), 0)
+#     d_l = adv_l.mean() / adv_l.std(ddof=1)
+#     print(f"  t({len(adv_l)-1}) = {t_l:+.3f}, p = {p_l:.4f}, d = {d_l:.3f}")
+
+
+#     import datetime as _dt
+#     run_timestamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+#     out_prefix      = Path(args.out_prefix)
+#     csv_path        = f"{out_prefix.name}_{run_timestamp}.csv"
+#     trials_path     = f"{out_prefix.name}_{run_timestamp}_first_heldout_trials.csv"
+#     all_trials_path = f"{out_prefix.name}_{run_timestamp}_all_trials.csv"
+#     json_path       = f"{out_prefix.name}_{run_timestamp}.json"
+
+#     df.to_csv(csv_path, index=False)
+#     trials_df.to_csv(trials_path, index=False)
+#     all_trials_df.to_csv(all_trials_path, index=False)
+#     with open(json_path, "w") as f:
+#         json.dump({"config": asdict(cfg), "args": vars(args), "results": results}, f, indent=2)
+#     print(f"\nSaved summary CSV       → {csv_path}")
+#     print(f"Saved first-heldout CSV → {trials_path}")
+#     print(f"Saved all-trials CSV    → {all_trials_path}")
+#     print(f"Saved full JSON         → {json_path}")
+
+
+# if __name__ == "__main__":
+#     main()
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--hier_module", type=str, default="full_hier_parent_specific_ncrp_confident_readout")
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     parser.add_argument("--n_particles", type=int, default=200)
     parser.add_argument("--alpha", type=float, default=1.0)
@@ -445,7 +602,6 @@ def main():
     print("=" * 88)
     print("SHAPE x MANY COLORS TRANSFER TASK")
     print("=" * 88)
-    print(f"Hier module: {args.hier_module}")
     print(f"Seeds: {args.seeds}")
     print(f"alpha={args.alpha}, omega={args.omega}, particles={args.n_particles}")
     print(f"length_normalize={not args.no_length_normalize}, tau={args.tau}")
@@ -455,7 +611,7 @@ def main():
     for seed in args.seeds:
         print(f"\nRunning seed {seed}...")
         res, trial_df, all_trials_df = run_one_seed(
-            seed, cfg, args.hier_module, args.n_particles, args.alpha, args.omega,
+            seed, cfg, args.n_particles, args.alpha, args.omega,
             args.max_depth, args.max_children, 
             not args.no_length_normalize, args.tau, 
         )
@@ -487,6 +643,41 @@ def main():
     df = pd.DataFrame([{k: v for k, v in r.items() if k != "hier_diag_by_level"} for r in results])
     trials_df     = pd.concat(trial_dfs,     ignore_index=True) if trial_dfs     else pd.DataFrame()
     all_trials_df = pd.concat(all_trial_dfs, ignore_index=True) if all_trial_dfs else pd.DataFrame()
+
+    # ------------------------------------------------------------------
+    # Run parameters, constant across seeds. Prepended to every output CSV
+    # so files are self-describing and safe to concatenate across runs.
+    # ------------------------------------------------------------------
+    param_cols = {
+        "alpha": args.alpha,
+        "omega": args.omega,
+        "n_particles": args.n_particles,
+        "max_depth": args.max_depth,
+        "max_children": args.max_children,
+        "length_normalize": not args.no_length_normalize,
+        "tau": args.tau,
+        "reward_rule": args.reward_rule,
+        "n_colors": args.n_colors,
+        "n_train_colors": args.n_train_colors,
+        "n_test_colors": args.n_test_colors,
+        "train_reps": args.train_reps,
+        "test_reps": args.test_reps,
+        "shape_copies": args.shape_copies,
+        "color_copies": args.color_copies,
+        "nuisance_features": args.nuisance_features,
+        "blocked_train_by_shape": not args.shuffled_train,
+    }
+
+    def prepend_params(frame):
+        """Return frame with param_cols inserted as leading columns (no-op if empty)."""
+        if frame is None or frame.empty:
+            return frame
+        params_frame = pd.DataFrame([param_cols] * len(frame)).reset_index(drop=True)
+        return pd.concat([params_frame, frame.reset_index(drop=True)], axis=1)
+
+    df            = prepend_params(df)
+    trials_df     = prepend_params(trials_df)
+    all_trials_df = prepend_params(all_trials_df)
 
     print("\n" + "=" * 88)
     print("SUMMARY ACROSS SEEDS")
